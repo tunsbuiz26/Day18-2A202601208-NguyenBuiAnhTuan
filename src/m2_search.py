@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Module 2: Hybrid Search — BM25 (Vietnamese) + Dense + RRF."""
 
-import os, sys
+import hashlib, os, re, sys
 from dataclasses import dataclass
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,17 +24,55 @@ def _load_encoder(model_name: str):
     """
     if model_name in _encoders:
         return _encoders[model_name]
-    from sentence_transformers import SentenceTransformer
-    prev = os.environ.get("HF_HUB_OFFLINE")
+    prev_hf = os.environ.get("HF_HUB_OFFLINE")
+    prev_transformers = os.environ.get("TRANSFORMERS_OFFLINE")
     os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
     try:
-        _encoders[model_name] = SentenceTransformer(model_name)
+        # Set offline flags before importing transformers; several versions
+        # snapshot the flags at import time.
+        from sentence_transformers import SentenceTransformer
+        _encoders[model_name] = SentenceTransformer(model_name, local_files_only=True)
     finally:
-        if prev is None:
+        if prev_hf is None:
             os.environ.pop("HF_HUB_OFFLINE", None)
         else:
-            os.environ["HF_HUB_OFFLINE"] = prev
+            os.environ["HF_HUB_OFFLINE"] = prev_hf
+        if prev_transformers is None:
+            os.environ.pop("TRANSFORMERS_OFFLINE", None)
+        else:
+            os.environ["TRANSFORMERS_OFFLINE"] = prev_transformers
     return _encoders[model_name]
+
+
+class _HashEncoder:
+    """Deterministic local fallback when a Hugging Face model is unavailable.
+
+    This is deliberately not presented as a semantic model. It keeps the
+    Qdrant/DenseSearch path operational offline while BM25 remains the main
+    source of lexical relevance until the configured model is downloaded.
+    """
+
+    def __init__(self, dimension: int):
+        self.dimension = dimension
+
+    def encode(self, sentences, show_progress_bar: bool = False):
+        import numpy as np
+
+        single = isinstance(sentences, str)
+        items = [sentences] if single else list(sentences)
+        vectors = np.zeros((len(items), self.dimension), dtype=np.float32)
+        for row, sentence in enumerate(items):
+            tokens = re.findall(r"\w+", str(sentence).casefold())
+            for token in tokens:
+                digest = hashlib.sha1(token.encode("utf-8")).digest()
+                index = int.from_bytes(digest[:4], "big") % self.dimension
+                sign = 1.0 if digest[4] & 1 else -1.0
+                vectors[row, index] += sign
+            norm = np.linalg.norm(vectors[row])
+            if norm:
+                vectors[row] /= norm
+        return vectors[0] if single else vectors
 
 
 @dataclass
@@ -131,7 +169,12 @@ class DenseSearch:
 
     def _get_encoder(self):
         if self._encoder is None:
-            self._encoder = _load_encoder(EMBEDDING_MODEL)
+            try:
+                self._encoder = _load_encoder(EMBEDDING_MODEL)
+            except Exception as e:
+                print(f"  ⚠️  Không load được embedding '{EMBEDDING_MODEL}' ({e}) "
+                      f"— dùng hash fallback {EMBEDDING_DIM} chiều.")
+                self._encoder = _HashEncoder(EMBEDDING_DIM)
         return self._encoder
 
     def index(self, chunks: list[dict], collection: str = COLLECTION_NAME) -> None:

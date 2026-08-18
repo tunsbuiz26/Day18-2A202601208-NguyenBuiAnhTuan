@@ -29,6 +29,14 @@ DIAGNOSTIC_TREE = {
                          "Sửa prompt template, thêm query rewriting, yêu cầu trả lời trực tiếp"),
 }
 
+REFUSAL_MARKERS = (
+    "không tìm thấy thông tin",
+    "không có thông tin",
+    "không đủ thông tin",
+    "no information",
+    "not found",
+)
+
 
 @dataclass
 class EvalResult:
@@ -63,6 +71,12 @@ def _mean(values: list[float]) -> float:
 
 def _tokens(text: str) -> set[str]:
     return {t for t in re.findall(r"\w+", (text or "").lower()) if len(t) > 1}
+
+
+def _is_refusal(answer: str) -> bool:
+    """Detect a no-answer response so it is not mislabeled as hallucination."""
+    normalized = " ".join((answer or "").casefold().split())
+    return any(marker in normalized for marker in REFUSAL_MARKERS)
 
 
 def _offline_metrics(questions, answers, contexts, ground_truths) -> dict:
@@ -210,6 +224,19 @@ def failure_analysis(eval_results: list[EvalResult], bottom_n: int = 10) -> list
         scores = {m: _safe_float(getattr(r, m, 0.0)) for m in METRIC_NAMES}
         worst_metric = min(scores, key=lambda m: scores[m])
         diagnosis, fix = DIAGNOSTIC_TREE[worst_metric]
+        if worst_metric == "faithfulness" and _is_refusal(getattr(r, "answer", "")):
+            if getattr(r, "contexts", None):
+                diagnosis = (
+                    "Refusal despite retrieved context — context may be incomplete or lack "
+                    "source diversity for a multi-hop question"
+                )
+                fix = (
+                    "Inspect parent expansion and preserve diverse sources; increase retrieval "
+                    "coverage or decompose the query before tightening the answer prompt"
+                )
+            else:
+                diagnosis = "Refusal with no retrieved context — retrieval returned no usable evidence"
+                fix = "Check indexing and query retrieval, then increase top_k or improve chunking"
         scored.append({
             "question": getattr(r, "question", ""),
             "answer": (getattr(r, "answer", "") or "")[:300],

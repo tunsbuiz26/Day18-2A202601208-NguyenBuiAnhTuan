@@ -7,8 +7,20 @@ Chạy: python check_lab.py
 
 import json
 import os
+import re
 import sys
 import subprocess
+
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def configure_console() -> None:
+    """Keep the checker usable on Windows consoles with a cp1252 default."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure:
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def check_file(path: str, required: bool = True) -> bool:
@@ -58,31 +70,38 @@ def run_tests() -> tuple[int, int]:
             [sys.executable, "-m", "pytest", "tests/", "-v", "--tb=no", "-q"],
             capture_output=True, text=True, timeout=120,
         )
-        lines = result.stdout.strip().split("\n")
-        summary = lines[-1] if lines else ""
-        # Parse "X passed, Y failed" or "X passed"
-        passed = total = 0
-        for part in summary.split(","):
-            part = part.strip()
-            if "passed" in part:
-                passed = int(part.split()[0])
-                total += passed
-            if "failed" in part:
-                total += int(part.split()[0])
-        return passed, total
+        output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+        # Pytest may wrap the summary in separator characters, e.g.
+        # "===================== 37 passed in 64s =====================".
+        matches = re.findall(
+            r"(?P<count>\d+)\s+(?P<status>passed|failed|error|errors|skipped|xfailed|xpassed)",
+            output,
+            flags=re.IGNORECASE,
+        )
+        if not matches:
+            print("  ⚠️  pytest không trả về dòng tổng kết hợp lệ")
+            return 0, 0
+
+        counts = {"passed": 0, "failed": 0, "error": 0, "errors": 0,
+                  "skipped": 0, "xfailed": 0, "xpassed": 0}
+        for count, status in matches:
+            counts[status.lower()] += int(count)
+        total = sum(counts.values())
+        return counts["passed"], total
     except Exception as e:
         print(f"  ⚠️  pytest error: {e}")
         return 0, 0
 
 
 def validate():
+    os.chdir(ROOT_DIR)
     print("🔍 Kiểm tra bài nộp Lab 18: Production RAG\n")
     errors = 0
 
     # 1. Source files
     print("📁 Source code:")
     for f in ["src/m1_chunking.py", "src/m2_search.py", "src/m3_rerank.py",
-              "src/m4_eval.py", "src/pipeline.py"]:
+              "src/m4_eval.py", "src/m5_enrichment.py", "src/pipeline.py"]:
         if not check_file(f):
             errors += 1
 
@@ -97,8 +116,9 @@ def validate():
 
     # 3. Analysis
     print("\n📝 Analysis:")
-    check_file("analysis/failure_analysis.md")
-    check_file("analysis/group_report.md")
+    for f in ["analysis/failure_analysis.md", "analysis/group_report.md"]:
+        if not check_file(f):
+            errors += 1
 
     # 4. Individual reflections
     print("\n👤 Individual reflections:")
@@ -111,6 +131,7 @@ def validate():
             print(f"  ✅ {ref_dir}/{r}")
     else:
         print(f"  ⚠️  Chưa có file reflection cá nhân trong {ref_dir}/")
+        errors += 1
 
     # 5. TODO count
     print("\n🔧 TODO markers:")
@@ -119,6 +140,7 @@ def validate():
         print("  ✅ Không còn TODO nào")
     else:
         print(f"  ⚠️  Còn {todo_count} TODO chưa implement")
+        errors += 1
 
     # 6. Tests
     print("\n🧪 Auto-tests:")
@@ -126,8 +148,11 @@ def validate():
     if total > 0:
         pct = passed / total * 100
         print(f"  {'✅' if pct >= 80 else '⚠️'} {passed}/{total} tests passed ({pct:.0f}%)")
+        if passed < total:
+            errors += 1
     else:
         print("  ⚠️  Không chạy được tests")
+        errors += 1
 
     # 7. Summary
     print("\n" + "=" * 50)
@@ -136,7 +161,9 @@ def validate():
     else:
         print(f"❌ Có {errors} lỗi. Sửa trước khi nộp.")
     print("=" * 50)
+    return errors
 
 
 if __name__ == "__main__":
-    validate()
+    configure_console()
+    raise SystemExit(validate())

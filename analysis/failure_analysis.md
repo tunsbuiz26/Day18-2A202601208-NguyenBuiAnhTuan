@@ -73,8 +73,8 @@ Xếp theo `avg_score` tăng dần, lấy từ `failure_analysis()` trong `src/m
   từ chối. Đây là **hành vi đúng của LLM** nhưng RAGAS chấm refusal = F 0 và AR 0.
 - **Suggested fix:** giữ **đa dạng nguồn** ở tầng context: nếu sau dedup còn < 3 context thì bù
   bằng child chunk của các `source` khác (hoặc thêm MMR/diversity penalty vào RRF, hoặc
-  query decomposition cho câu multi-hop). Diagnosis tự động ghi "LLM hallucinating" là **sai** —
-  `DIAGNOSTIC_TREE` cần thêm nhánh riêng cho `answer == refusal`.
+  query decomposition cho câu multi-hop). Code đã bổ sung nhánh riêng cho `answer == refusal`,
+  nên failure report không còn gán nhầm lỗi này thành "LLM hallucinating".
 
 ### #2 — avg 0.662 · worst: faithfulness 0.00
 - **Question:** Nhân viên tạm ứng 15 triệu, sau 20 ngày mới thanh toán. Bị phạt bao nhiêu?
@@ -181,8 +181,8 @@ _expand_to_parent() → FINAL CONTEXTS = 1  (908 ký tự, bảng 4 cấp phân 
 - **(20 phút) `effective_date` / `version` vào auto-metadata + filter Qdrant:** sửa #5 và câu
   "đổi mật khẩu" (CP 0.5 do chunk `mat_khau_v1`) → CP về ~1.0, AR đỡ bị trừ vì answer không phải
   kể 2 phiên bản.
-- **(10 phút) Sửa `DIAGNOSTIC_TREE`:** thêm nhánh `answer là refusal` → "context thiếu mắt nối,
-  không phải hallucination". Hiện tại #1 bị chẩn đoán ngược, gây mất thời gian debug sai chỗ.
+- **(10 phút) Đã sửa `DIAGNOSTIC_TREE`:** thêm nhánh `answer là refusal` → "context thiếu mắt nối,
+  không phải hallucination". Failure report hiện chỉ rõ cần kiểm tra độ phủ và đa dạng nguồn.
 - **(10 phút) Tách metric theo loại câu hỏi:** câu tính toán (#2, #4, Q11, Q17) chấm bằng
   answer_correctness thay vì faithfulness — hiện chúng đóng góp gần hết phần faithfulness bị mất
   mà không có cách nào sửa bằng prompt (đã chứng minh bằng A/B v1→v4).

@@ -14,6 +14,7 @@ _MODEL_CACHE: dict[str, object] = {}
 _WARNED: set[str] = set()
 
 _WEIGHT_FILES = ("model.safetensors", "pytorch_model.bin")
+_REQUIRED_MODEL_FILES = ("modules.json",)
 
 
 def _weights_cached(model_name: str) -> bool:
@@ -29,10 +30,15 @@ def _weights_cached(model_name: str) -> bool:
         from huggingface_hub import try_to_load_from_cache
     except ImportError:
         return True  # không xác định được → cứ thử load
-    for fn in _WEIGHT_FILES:
-        if isinstance(try_to_load_from_cache(model_name, fn), str):
-            return True
-    return False
+    has_weights = any(
+        isinstance(try_to_load_from_cache(model_name, fn), str)
+        for fn in _WEIGHT_FILES
+    )
+    has_structure = all(
+        isinstance(try_to_load_from_cache(model_name, fn), str)
+        for fn in _REQUIRED_MODEL_FILES
+    )
+    return has_weights and has_structure
 
 
 @dataclass
@@ -50,6 +56,10 @@ class CrossEncoderReranker:
         self._model = None
 
     def _load_model(self):
+        # False is a cached "load failed" state. It prevents every query from
+        # retrying a broken/incomplete Hugging Face cache.
+        if self._model is False:
+            return None
         if self._model is None:
             self._model = _MODEL_CACHE.get(self.model_name)
             if self._model is not None:
@@ -63,16 +73,24 @@ class CrossEncoderReranker:
             # Dùng sentence_transformers.CrossEncoder, KHÔNG dùng FlagEmbedding:
             # FlagReranker crash với transformers>=5.0 (XLMRobertaTokenizer lỗi).
             # HF_HUB_OFFLINE=1: chỉ đọc cache, không để from_pretrained treo vì network.
-            from sentence_transformers import CrossEncoder
-            prev = os.environ.get("HF_HUB_OFFLINE")
-            os.environ["HF_HUB_OFFLINE"] = "1"
             try:
-                self._model = CrossEncoder(self.model_name)
-            finally:
-                if prev is None:
-                    os.environ.pop("HF_HUB_OFFLINE", None)
-                else:
-                    os.environ["HF_HUB_OFFLINE"] = prev
+                from sentence_transformers import CrossEncoder
+                prev = os.environ.get("HF_HUB_OFFLINE")
+                os.environ["HF_HUB_OFFLINE"] = "1"
+                try:
+                    self._model = CrossEncoder(self.model_name, local_files_only=True)
+                finally:
+                    if prev is None:
+                        os.environ.pop("HF_HUB_OFFLINE", None)
+                    else:
+                        os.environ["HF_HUB_OFFLINE"] = prev
+            except Exception as e:
+                self._model = False
+                if self.model_name not in _WARNED:
+                    _WARNED.add(self.model_name)
+                    print(f"  ⚠️  Không load được reranker '{self.model_name}' ({e}) "
+                          "— dùng thứ tự retrieval làm fallback.")
+                return None
             _MODEL_CACHE[self.model_name] = self._model
         return self._model
 
