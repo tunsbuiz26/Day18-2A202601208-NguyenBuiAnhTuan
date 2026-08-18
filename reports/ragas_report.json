@@ -39,8 +39,8 @@
         "context_precision": 0.9999999999,
         "context_recall": 1.0
       },
-      "diagnosis": "LLM hallucinating — câu trả lời chứa thông tin không có trong context",
-      "suggested_fix": "Siết prompt ('chỉ dùng context'), giảm temperature, thêm citation bắt buộc"
+      "diagnosis": "Refusal despite retrieved context — context may be incomplete or lack source diversity for a multi-hop question",
+      "suggested_fix": "Inspect parent expansion and preserve diverse sources; increase retrieval coverage or decompose the query before tightening the answer prompt"
     },
     {
       "question": "Nhân viên thử việc có được nghỉ phép năm không?",

@@ -1,8 +1,8 @@
 # Lab 18: Production RAG Pipeline
 
-**AICB-K34 · Ngày 18 · Production RAG**  
+**AICB-K34 · Ngày 18 · Production RAG**
 **Giảng viên:** Nguyễn Tiến Đồng · **Thời gian:** 2h implement + 30 phút reflection
-**Ref**: repo của giảng viên Trần Quang Thiện K2. 
+**Ref**: repo của giảng viên Trần Quang Thiện K2.
 
 ---
 
@@ -18,13 +18,14 @@ Xem **ASSIGNMENT.md** để biết chi tiết từng module và timeline.
 
 ## Prerequisites
 
-| Dependency | Bắt buộc? | Dùng cho |
-|-----------|-----------|----------|
-| Docker (Qdrant) | ✅ Có | M2 Dense Search |
-| Python 3.11+ | ✅ Có | Tất cả modules (RAGAS cần 3.11+ cho asyncio) |
-| `OPENAI_API_KEY` | ⚠️ M4+M5 | RAGAS eval (M4), Enrichment LLM (M5) |
+| Dependency         | Bắt buộc? | Dùng cho                                       |
+| ------------------ | ----------- | ----------------------------------------------- |
+| Docker (Qdrant)    | ✅ Có      | M2 Dense Search                                 |
+| Python 3.11+       | ✅ Có      | Tất cả modules (RAGAS cần 3.11+ cho asyncio) |
+| `OPENAI_API_KEY` | ⚠️ M4+M5  | RAGAS eval (M4), Enrichment LLM (M5)            |
 
 **Pre-download models** (tránh timeout trong lab):
+
 ```bash
 python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"
@@ -107,9 +108,9 @@ lab18-production-rag/
 
 ## Timeline
 
-| Thời gian | Hoạt động |
-|-----------|-----------|
-| 0:00–0:10 | Setup + chạy `naive_baseline.py` |
-| 0:10–1:40 | Implement M1 → M2 → M3 → M4 → M5 |
-| 1:40–2:00 | Chạy pipeline + RAGAS + failure analysis |
+| Thời gian | Hoạt động                               |
+| ---------- | ------------------------------------------ |
+| 0:00–0:10 | Setup + chạy`naive_baseline.py`         |
+| 0:10–1:40 | Implement M1 → M2 → M3 → M4 → M5       |
+| 1:40–2:00 | Chạy pipeline + RAGAS + failure analysis  |
 | 2:00–2:30 | Reflection: lecture mapping + project plan |

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Production RAG Pipeline — Bài tập NHÓM: ghép M1+M2+M3+M4."""
 
-import os, sys, time
+import os, re, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -18,7 +18,7 @@ PARENT_MAP: dict[str, str] = {}
 # Thời gian từng bước build, dùng cho latency breakdown report.
 BUILD_TIMINGS: dict[str, float] = {}
 
-# Prompt v3. Lịch sử A/B (cùng test set 20 câu, cùng pipeline):
+# Prompt v5. Lịch sử A/B (cùng test set 20 câu, cùng pipeline):
 #   v1 (1 dòng "Trả lời CHỈ dựa trên context")      → F 0.8375 · AR 0.7266
 #   v2 (siết: cấm mọi suy luận + bắt buộc từ chối)  → F 0.7333 · AR 0.6871  ✗ regression
 #   v3 (dưới đây)                                    → xem reports/ragas_report.json
@@ -33,9 +33,9 @@ BUILD_TIMINGS: dict[str, float] = {}
 ANSWER_SYSTEM_PROMPT = """Bạn trả lời câu hỏi về quy định nội bộ, CHỈ dựa trên CONTEXT.
 
 Quy tắc:
-1. Trả lời trực tiếp trong 1–3 câu, nhắc lại chủ thể của câu hỏi (KHÔNG dùng "nó",
-   "điều này", "như trên"). Ví dụ hỏi "Nghỉ phép năm bao nhiêu ngày?" → "Nhân viên
-   chính thức được nghỉ phép năm 15 ngày làm việc."
+1. Đặt đáp án trực tiếp ở đầu câu và trả lời tối đa 1 câu ngắn. Chỉ dùng câu thứ hai
+   khi câu hỏi có từ hai ý cần trả lời. Dùng lại các từ khóa chính của câu hỏi, nhưng
+   không chép lại toàn bộ câu hỏi và không mở đầu bằng "Theo tài liệu".
 2. Câu hỏi có/không: mở đầu bằng "Có" hoặc "KHÔNG", rồi nêu quy định trong CONTEXT.
 3. Nếu câu hỏi cần tính toán, chỉ dùng công thức/mức phí có trong CONTEXT và
    viết rõ số gốc trước khi ra kết quả (ví dụ: "phí 2%/tháng trên 15.000.000 VNĐ,
@@ -43,7 +43,8 @@ Quy tắc:
    trong CONTEXT.
 4. Nếu CONTEXT có nhiều phiên bản quy định: trả lời theo phiên bản mới nhất, nói rõ
    phiên bản/năm, và nêu ngắn gọn phiên bản cũ để tránh nhầm.
-5. Không thêm câu mở đầu ("Theo tài liệu...") hay lời khuyên chung chung.
+5. Với câu hỏi nhiều ý, trả lời đủ từng ý theo đúng thứ tự câu hỏi; không bỏ sót ý
+   chỉ vì CONTEXT của ý còn lại nằm ở nguồn khác.
 6. Chỉ khi CONTEXT hoàn toàn không liên quan đến câu hỏi mới trả lời:
    "Không tìm thấy thông tin trong tài liệu." Nếu CONTEXT có thông tin một phần,
    hãy trả lời phần có và nói rõ phần nào tài liệu không đề cập."""
@@ -105,15 +106,57 @@ def build_pipeline():
     return search, reranker
 
 
-def _expand_to_parent(reranked_texts: list[str], metadatas: list[dict]) -> list[str]:
-    """Small-to-big: child match chính xác → trả parent để LLM có đủ ngữ cảnh."""
+def _source_key(metadata: dict) -> str:
+    source = metadata.get("source")
+    if source:
+        return str(source)
+    parent_key = str(metadata.get("parent_key", ""))
+    return parent_key.rsplit("::", 1)[0] if "::" in parent_key else parent_key
+
+
+def _expand_to_parent(
+    reranked_texts: list[str],
+    metadatas: list[dict],
+    fallback_texts: list[str] | None = None,
+    fallback_metadatas: list[dict] | None = None,
+    query: str = "",
+) -> list[str]:
+    """Small-to-big expansion that keeps a relevant second source for multi-hop queries."""
     contexts, seen = [], set()
+    seen_sources = set()
     for text, meta in zip(reranked_texts, metadatas):
         parent_text = PARENT_MAP.get(meta.get("parent_key", ""))
         chosen = parent_text or text
         if chosen not in seen:
             seen.add(chosen)
             contexts.append(chosen)
+
+        source = _source_key(meta)
+        if source:
+            seen_sources.add(source)
+
+    # Reranking can select several children from one parent. If that collapses
+    # the final context to one source, add at most one relevant child/parent
+    # from the broader hybrid result list so multi-hop questions retain both
+    # evidence paths without broadly diluting every query.
+    if len(contexts) == 1 and fallback_texts and fallback_metadatas:
+        query_terms = {
+            token for token in re.findall(r"\w+", query.casefold()) if len(token) > 2
+        }
+        for text, meta in zip(fallback_texts, fallback_metadatas):
+            source = _source_key(meta)
+            if not source or source in seen_sources:
+                continue
+            candidate_terms = {
+                token for token in re.findall(r"\w+", text.casefold()) if len(token) > 2
+            }
+            if query_terms and not (query_terms & candidate_terms):
+                continue
+            parent_text = PARENT_MAP.get(meta.get("parent_key", ""))
+            chosen = parent_text or text
+            if chosen not in seen:
+                contexts.append(chosen)
+                break
     return contexts
 
 
@@ -137,7 +180,13 @@ def run_query(query: str, search: HybridSearch, reranker: CrossEncoderReranker,
         metadatas = [r.metadata for r in results[:3]]
 
     if EXPAND_TO_PARENT:
-        contexts = _expand_to_parent(contexts, metadatas)
+        contexts = _expand_to_parent(
+            contexts,
+            metadatas,
+            fallback_texts=[r.text for r in results],
+            fallback_metadatas=[r.metadata for r in results],
+            query=query,
+        )
 
     t0 = time.perf_counter()
     from config import OPENAI_API_KEY
