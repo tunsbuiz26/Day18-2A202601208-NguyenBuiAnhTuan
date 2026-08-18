@@ -4,5 +4,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 qdrant_data/
+.qdrant_local/
 *.egg-info/
-reports/*.json
+# reports/*.json là deliverable bắt buộc (RUBRIC #7) → phải commit, không ignore.
+.enrich_cache.json

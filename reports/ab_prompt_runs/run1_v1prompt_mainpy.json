@@ -1,0 +1,212 @@
+{
+  "aggregate": {
+    "faithfulness": 0.8375,
+    "answer_relevancy": 0.7266,
+    "context_precision": 0.975,
+    "context_recall": 0.95,
+    "mode": "ragas"
+  },
+  "num_questions": 20,
+  "failures": [
+    {
+      "question": "Thông tin lương thuộc cấp độ phân loại dữ liệu nào?",
+      "answer": "Không tìm thấy.",
+      "ground_truth": "Theo quy chế chi trả lương, thông tin lương được phân loại là dữ liệu Bí mật, cấm chia sẻ với đồng nghiệp. Theo chính sách phân loại dữ liệu, dữ liệu Bí mật (cấp 3) phải mã hóa khi truyền và hạn chế truy cập theo need-to-know.",
+      "n_contexts": 1,
+      "avg_score": 0.5,
+      "worst_metric": "faithfulness",
+      "score": 0.0,
+      "scores": {
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "diagnosis": "LLM hallucinating — câu trả lời chứa thông tin không có trong context",
+      "suggested_fix": "Siết prompt ('chỉ dùng context'), giảm temperature, thêm citation bắt buộc"
+    },
+    {
+      "question": "Nhân viên tạm ứng 15 triệu, sau 20 ngày mới thanh toán. Bị phạt bao nhiêu?",
+      "answer": "Nhân viên tạm ứng 15 triệu và thanh toán sau 20 ngày. Thời hạn thanh toán là 15 ngày, nên bị phạt 2%/tháng trên số tiền chưa hoàn ứng. \n\nSố tiền phạt = 15.000.000 VNĐ * 2% * (20 ngày - 15 ngày)/30 ngày = 15.000.000 VNĐ * 2% * 1/30 = 1.000 VNĐ.\n\nNhân viên sẽ bị phạt **1.000 VNĐ**.",
+      "ground_truth": "Thời hạn thanh toán là 15 ngày. Quá hạn 5 ngày, bị tính phí 2%/tháng trên 15.000.000 VNĐ = 300.000 VNĐ/tháng (tính pro-rata khoảng 50.000 VNĐ cho 5 ngày).",
+      "n_contexts": 1,
+      "avg_score": 0.6908,
+      "worst_metric": "faithfulness",
+      "score": 0.25,
+      "scores": {
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.5130447984456444,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "diagnosis": "LLM hallucinating — câu trả lời chứa thông tin không có trong context",
+      "suggested_fix": "Siết prompt ('chỉ dùng context'), giảm temperature, thêm citation bắt buộc"
+    },
+    {
+      "question": "Thâm niên bao nhiêu năm thì được cộng thêm ngày phép?",
+      "answer": "- Phiên bản 2023: từ **5 năm** trở lên.\n- Phiên bản 2024: từ **3 năm** trở lên.",
+      "ground_truth": "Theo chính sách v2024 hiện hành, nhân viên có thâm niên từ 3 năm trở lên được cộng thêm 1 ngày phép cho mỗi 3 năm. Chính sách cũ v2023 yêu cầu 5 năm.",
+      "n_contexts": 2,
+      "avg_score": 0.7663,
+      "worst_metric": "context_precision",
+      "score": 0.49999999995,
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.5650888311635763,
+        "context_precision": 0.49999999995,
+        "context_recall": 1.0
+      },
+      "diagnosis": "Too many irrelevant chunks — context bị pha loãng",
+      "suggested_fix": "Thêm/siết reranking, giảm rerank_top_k, filter theo metadata"
+    },
+    {
+      "question": "Có cần kích hoạt xác thực đa yếu tố (MFA) không?",
+      "answer": "Có, tất cả nhân viên **bắt buộc** kích hoạt MFA cho tài khoản email, VPN và các hệ thống nội bộ.",
+      "ground_truth": "Có, theo chính sách mật khẩu v2.0 hiện hành, tất cả nhân viên bắt buộc kích hoạt MFA cho email, VPN và hệ thống nội bộ. Chính sách cũ v1.0 không yêu cầu MFA.",
+      "n_contexts": 3,
+      "avg_score": 0.7789,
+      "worst_metric": "context_recall",
+      "score": 0.5,
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.6155923688704235,
+        "context_precision": 0.9999999999,
+        "context_recall": 0.5
+      },
+      "diagnosis": "Missing relevant chunks — retrieval bỏ sót thông tin cần thiết",
+      "suggested_fix": "Tăng top_k, cải thiện chunking (parent-child), thêm BM25 vào hybrid"
+    },
+    {
+      "question": "Nhân viên được tài trợ khóa học 25 triệu, nghỉ việc sau 8 tháng hoàn thành khóa học. Phải hoàn trả bao nhiêu?",
+      "answer": "Nhân viên phải hoàn trả **100% chi phí** đào tạo đã được tài trợ, tức là **25.000.000 VNĐ**.",
+      "ground_truth": "Nhân viên phải cam kết làm việc ít nhất 1 năm sau khi hoàn thành khóa học. Nghỉ sau 8 tháng là trước hạn cam kết, phải hoàn trả 100% chi phí tức 25.000.000 VNĐ.",
+      "n_contexts": 2,
+      "avg_score": 0.8057,
+      "worst_metric": "faithfulness",
+      "score": 0.5,
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.722966533081773,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      "diagnosis": "LLM hallucinating — câu trả lời chứa thông tin không có trong context",
+      "suggested_fix": "Siết prompt ('chỉ dùng context'), giảm temperature, thêm citation bắt buộc"
+    },
+    {
+      "question": "Nghỉ phép không lương 20 ngày cần ai phê duyệt?",
+      "answer": "Nghỉ phép không lương 20 ngày cần phê duyệt của **Giám đốc điều hành (CEO)**.",
+      "ground_truth": "Nghỉ 16-30 ngày cần phê duyệt của Giám đốc điều hành (CEO). Lưu ý: nghỉ trên 14 ngày không lương, nhân viên phải tự đóng phần bảo hiểm của mình.",
+      "n_contexts": 2,
+      "avg_score": 0.8098,
+      "worst_metric": "faithfulness",
+      "score": 0.5,
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.7392769955448922,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "diagnosis": "LLM hallucinating — câu trả lời chứa thông tin không có trong context",
+      "suggested_fix": "Siết prompt ('chỉ dùng context'), giảm temperature, thêm citation bắt buộc"
+    },
+    {
+      "question": "Một nhân viên Senior có 9 năm thâm niên được nghỉ bao nhiêu ngày phép năm và lương trong khoảng nào?",
+      "answer": "Nhân viên có 9 năm thâm niên sẽ được nghỉ **18 ngày phép năm** (15 ngày cơ bản + 3 ngày thâm niên). Không tìm thấy thông tin về lương.",
+      "ground_truth": "Theo chính sách v2024: 15 ngày cơ bản + 3 ngày thâm niên (9÷3=3) = 18 ngày phép. Lương Senior (P3-P4): 20-35 triệu VNĐ/tháng.",
+      "n_contexts": 2,
+      "avg_score": 0.816,
+      "worst_metric": "context_recall",
+      "score": 0.5,
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.7640589013209151,
+        "context_precision": 0.99999999995,
+        "context_recall": 0.5
+      },
+      "diagnosis": "Missing relevant chunks — retrieval bỏ sót thông tin cần thiết",
+      "suggested_fix": "Tăng top_k, cải thiện chunking (parent-child), thêm BM25 vào hybrid"
+    },
+    {
+      "question": "Lương thử việc của nhân viên Junior mức cao nhất là bao nhiêu?",
+      "answer": "Lương thử việc của nhân viên Junior mức cao nhất là **17.000.000 VNĐ/tháng** (85% của 20.000.000 VNĐ).",
+      "ground_truth": "Junior cao nhất là 20.000.000 VNĐ/tháng. Lương thử việc = 85% x 20.000.000 = 17.000.000 VNĐ/tháng.",
+      "n_contexts": 2,
+      "avg_score": 0.825,
+      "worst_metric": "faithfulness",
+      "score": 0.5,
+      "scores": {
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.8000124382901556,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      "diagnosis": "LLM hallucinating — câu trả lời chứa thông tin không có trong context",
+      "suggested_fix": "Siết prompt ('chỉ dùng context'), giảm temperature, thêm citation bắt buộc"
+    },
+    {
+      "question": "Nếu cần mua một chiếc laptop 30 triệu cho nhân viên mới, ai phê duyệt và cần gì từ phòng CNTT?",
+      "answer": "Giám đốc phòng ban (Director) sẽ phê duyệt đơn hàng 30 triệu VNĐ. Cần có xác nhận của phòng CNTT về cấu hình kỹ thuật trước khi đề xuất.",
+      "ground_truth": "Laptop 30 triệu nằm trong khoảng 5-50 triệu nên cần Giám đốc phòng ban (Director) phê duyệt. Ngoài ra, mua sắm thiết bị CNTT cần có xác nhận cấu hình kỹ thuật từ phòng CNTT trước khi đề xuất. Cần đính kèm ít nhất 3 báo giá vì trên 10 triệu.",
+      "n_contexts": 3,
+      "avg_score": 0.8796,
+      "worst_metric": "answer_relevancy",
+      "score": 0.518572760410514,
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.518572760410514,
+        "context_precision": 0.9999999999666667,
+        "context_recall": 1.0
+      },
+      "diagnosis": "Answer doesn't match question — trả lời lệch câu hỏi",
+      "suggested_fix": "Sửa prompt template, thêm query rewriting, yêu cầu trả lời trực tiếp"
+    },
+    {
+      "question": "Muốn mua thiết bị trị giá 55 triệu cần ai phê duyệt?",
+      "answer": "Cần Tổng Giám đốc (CEO) phê duyệt.",
+      "ground_truth": "Đơn hàng trên 50.000.000 VNĐ cần Tổng Giám đốc (CEO) phê duyệt.",
+      "n_contexts": 2,
+      "avg_score": 0.9175,
+      "worst_metric": "answer_relevancy",
+      "score": 0.6698299487325365,
+      "scores": {
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.6698299487325365,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      "diagnosis": "Answer doesn't match question — trả lời lệch câu hỏi",
+      "suggested_fix": "Sửa prompt template, thêm query rewriting, yêu cầu trả lời trực tiếp"
+    }
+  ],
+  "latency": {
+    "build": {
+      "chunking_s": 0.03,
+      "enrichment_s": 988.55,
+      "indexing_s": 20.6,
+      "reranker_load_s": 0.0
+    },
+    "per_query": {
+      "retrieval_ms": {
+        "avg_ms": 17.8,
+        "min_ms": 13.2,
+        "max_ms": 45.7,
+        "p95_ms": 21.3
+      },
+      "rerank_ms": {
+        "avg_ms": 1.6,
+        "min_ms": 0.9,
+        "max_ms": 2.1,
+        "p95_ms": 1.9
+      },
+      "generation_ms": {
+        "avg_ms": 2799.4,
+        "min_ms": 1360.0,
+        "max_ms": 10202.4,
+        "p95_ms": 8164.0
+      }
+    },
+    "total_avg_ms": 2818.8,
+    "n_queries": 20
+  }
+}
